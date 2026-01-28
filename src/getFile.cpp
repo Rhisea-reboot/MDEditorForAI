@@ -3,6 +3,7 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <algorithm> // [ADDED] 用于 std::find
 #include "..\include\getFile.h"
 
 void getFile(const std::fs::path &p,std::string pre,bool isLast, char buffer[],std::ofstream &fout,const std::fs::path &skipPath) {
@@ -46,18 +47,37 @@ bool copyContent(const std::string& srcPath, const std::string& dstPath) {
     return src && dst; // 返回流的状态
 }
 
-void printCode(const std::fs::path &p,std::string pre,bool isLast, char buffer[],std::ofstream &fout){
+// [MODIFIED] 实现动态语言支持
+void printCode(const std::fs::path &p,std::string pre,bool isLast, char buffer[],std::ofstream &fout, const std::vector<std::string>& extensions){
     if (!std::fs::exists(p)){
         abort();
     }
-    if ((std::fs::path(p).extension() == ".cpp") && (std::fs::is_regular_file(p))){
+
+    // [MODIFIED] 检查当前文件后缀是否在用户允许的列表中
+    bool isAllowed = false;
+    std::string currentExt = p.extension().string();
+    
+    // 简单的线性查找
+    for(const auto& ext : extensions) {
+        if(currentExt == ext) {
+            isAllowed = true;
+            break;
+        }
+    }
+
+    if (isAllowed && std::fs::is_regular_file(p)){
         fout<<p.filename().string()<<"\n\n";
-        fout<<"```cpp\n\n";
+        
+        // [MODIFIED] 动态生成 Markdown 语言标签 (去掉点，例如 .cpp -> cpp)
+        std::string langTag = (currentExt.size() > 0 && currentExt[0] == '.') ? currentExt.substr(1) : currentExt;
+        fout<<"```"<< langTag <<"\n\n";
+        
         fout.close();
         copyContent(p.string(),buffer);
         fout.open(buffer, std::ios::app);
         fout<<"```\n\n";
     }
+
     if (!std::fs::is_directory(p)){
         return;
     }
@@ -66,6 +86,7 @@ void printCode(const std::fs::path &p,std::string pre,bool isLast, char buffer[]
         P.push_back(entry.path());
     }
     for (auto i : P){
-        printCode(i,pre+(isLast?T_EMPTY:T_VERT),i==P.back(),buffer,fout);
+        // [MODIFIED] 递归传递 extensions 参数
+        printCode(i,pre+(isLast?T_EMPTY:T_VERT),i==P.back(),buffer,fout, extensions);
     }
 }
