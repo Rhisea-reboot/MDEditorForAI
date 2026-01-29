@@ -3,8 +3,8 @@
 #include <fstream>
 #include <vector>
 #include <string>
-#include "..\include\initPrint.h"
-#include "..\include\getFile.h"
+#include "initPrint.h"
+#include "getFile.h"
 
 void initPrint(char buffer[]){
     std::ofstream fout(buffer);

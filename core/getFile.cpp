@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 #include <algorithm> // [ADDED] 用于 std::find
-#include "..\include\getFile.h"
+#include "getFile.h"
 
 void getFile(const std::fs::path &p,std::string pre,bool isLast, char buffer[],std::ofstream &fout,const std::fs::path &skipPath) {
     if (!std::fs::exists(p)){
