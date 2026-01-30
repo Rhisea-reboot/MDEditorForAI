@@ -6,6 +6,7 @@
 #include <QDateTime>
 #include <QApplication>
 #include <QScrollBar>
+#include <QFileInfo>
 // [FIX END]
 #include <fstream>
 #include <vector>
@@ -21,7 +22,7 @@ MainWindow::MainWindow(QWidget *parent)
     QWidget *centralWidget = new QWidget(this);
     setCentralWidget(centralWidget);
     setWindowTitle("MD Editor For AI - GUI Version");
-    resize(600, 700);
+    resize(600, 750);
 
     // --- UI 布局构建 ---
     QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
@@ -46,6 +47,17 @@ MainWindow::MainWindow(QWidget *parent)
     extEdit->setText("cpp h hpp"); // 默认值
     extEdit->setPlaceholderText("Space separated extensions (e.g., py java cpp)");
     formLayout->addRow("Extensions:", extEdit);
+
+    QHBoxLayout *ignoreLayout = new QHBoxLayout();
+    ignoreEdit = new QLineEdit(this);
+    ignoreEdit->setPlaceholderText("Space separated (e.g., .git .vscode build node_modules)");
+    ignoreEdit->setToolTip("Folders or files to exclude from the scan");
+
+    browseIgnoreBtn = new QPushButton("Browse",this);
+
+    ignoreLayout->addWidget(ignoreEdit);
+    ignoreLayout->addWidget(browseIgnoreBtn);
+    formLayout->addRow("Ignore List:", ignoreLayout);
 
     configGroup->setLayout(formLayout);
     mainLayout->addWidget(configGroup);
@@ -78,12 +90,34 @@ MainWindow::MainWindow(QWidget *parent)
     // --- 信号槽连接 ---
     connect(browseBtn, &QPushButton::clicked, this, &MainWindow::onBrowseClicked);
     connect(generateBtn, &QPushButton::clicked, this, &MainWindow::onGenerateClicked);
+    connect(browseIgnoreBtn, &QPushButton::clicked, this, &MainWindow::onBrowseIgnoreClicked);
 
     // 初始化日志
     log("System Ready. Waiting for input...", "cyan");
 }
 
-MainWindow::~MainWindow() {}
+MainWindow::~MainWindow()
+{
+    saveSettings();
+}
+
+void MainWindow::saveSettings()
+{
+    QSettings settings("MyCompany", "MDEditorForAI");
+    settings.setValue("projectName", nameEdit->text());
+    settings.setValue("targetPath", pathEdit->text());
+    settings.setValue("extensions", extEdit->text());
+    settings.setValue("ignoreList", ignoreEdit->text());
+}
+
+void MainWindow::loadSettings()
+{
+    QSettings settings("MyCompany", "MDEditorForAI");
+    nameEdit->setText(settings.value("projectName", "").toString());
+    pathEdit->setText(settings.value("targetPath", "").toString());
+    extEdit->setText(settings.value("extensions", "cpp h hpp").toString()); // 默认值
+    ignoreEdit->setText(settings.value("ignoreList", ".git .vscode build .idea bin obj").toString()); // 默认忽略
+}
 
 void MainWindow::log(const QString &msg, const QString &color)
 {
@@ -103,6 +137,29 @@ void MainWindow::onBrowseClicked()
     if (!dir.isEmpty()) {
         pathEdit->setText(dir);
         log("Directory selected: " + dir, "green");
+    }
+}
+
+void MainWindow::onBrowseIgnoreClicked()
+{
+    // 如果已选择了 Target Path，则从该路径开始，否则从 Home 开始
+    QString startPath = pathEdit->text().isEmpty() ? QDir::homePath() : pathEdit->text();
+
+    QString dir = QFileDialog::getExistingDirectory(this, "Select Directory to Ignore",
+                                                    startPath,
+                                                    QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+    if (!dir.isEmpty()) {
+        QFileInfo info(dir);
+        QString dirName = info.fileName(); // 仅获取文件夹名称（如 build），而不是完整路径
+
+        QString currentText = ignoreEdit->text().trimmed();
+        if (!currentText.isEmpty()) {
+            currentText += " "; // 添加空格分隔
+        }
+        currentText += dirName;
+
+        ignoreEdit->setText(currentText);
+        log("Added to ignore list: " + dirName, "green");
     }
 }
 
@@ -161,6 +218,17 @@ void MainWindow::executeGeneration()
             if (!cleanExt.startsWith('.')) cleanExt.prepend('.');
             targetExtensions.push_back(cleanExt.toStdString());
             logMsg += cleanExt + " ";
+        }
+        log(logMsg, "yellow");
+    }
+
+    std::vector<std::string> ignoreList;
+    QStringList ignoreStrList = ignoreEdit->text().split(' ', Qt::SkipEmptyParts);
+    if (!ignoreStrList.isEmpty()) {
+        QString logMsg = "Ignoring: ";
+        for (const QString &item : ignoreStrList) {
+            ignoreList.push_back(item.toStdString());
+            logMsg += item + " ";
         }
         log(logMsg, "yellow");
     }
