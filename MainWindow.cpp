@@ -11,6 +11,7 @@
 #include <fstream>
 #include <vector>
 #include <sstream>
+#include <set>
 
 // 引入原项目的核心头文件
 #include "core/getFile.h"
@@ -58,6 +59,25 @@ MainWindow::MainWindow(QWidget *parent)
     ignoreLayout->addWidget(ignoreEdit);
     ignoreLayout->addWidget(browseIgnoreBtn);
     formLayout->addRow("Ignore List:", ignoreLayout);
+
+    // 压缩模式选择
+    QHBoxLayout *compressLayout = new QHBoxLayout();
+    compressCombo = new QComboBox(this);
+    compressCombo->addItem("Full (完整输出)", 0);
+    compressCombo->addItem("Skeleton (骨架模式)", 1);
+    compressCombo->addItem("Interface Only (仅接口)", 2);
+    compressCombo->setCurrentIndex(1); // 默认骨架模式
+    compressCombo->setToolTip("选择代码压缩级别：\n- 完整输出：不压缩\n- 骨架模式：省略函数体实现\n- 仅接口：只保留声明");
+
+    // 去重复#include
+    dedupCheck = new QCheckBox("去重复 #include", this);
+    dedupCheck->setChecked(true);
+    dedupCheck->setToolTip("跨文件去除重复的 #include 语句");
+
+    compressLayout->addWidget(compressCombo);
+    compressLayout->addWidget(dedupCheck);
+    compressLayout->addStretch();
+    formLayout->addRow("Compression:", compressLayout);
 
     configGroup->setLayout(formLayout);
     mainLayout->addWidget(configGroup);
@@ -108,6 +128,8 @@ void MainWindow::saveSettings()
     settings.setValue("targetPath", pathEdit->text());
     settings.setValue("extensions", extEdit->text());
     settings.setValue("ignoreList", ignoreEdit->text());
+    settings.setValue("compressionLevel", compressCombo->currentIndex());
+    settings.setValue("dedupIncludes", dedupCheck->isChecked());
 }
 
 void MainWindow::loadSettings()
@@ -117,6 +139,8 @@ void MainWindow::loadSettings()
     pathEdit->setText(settings.value("targetPath", "").toString());
     extEdit->setText(settings.value("extensions", "cpp h hpp").toString()); // 默认值
     ignoreEdit->setText(settings.value("ignoreList", ".git .vscode build .idea bin obj").toString()); // 默认忽略
+    compressCombo->setCurrentIndex(settings.value("compressionLevel", 1).toInt()); // 默认骨架模式
+    dedupCheck->setChecked(settings.value("dedupIncludes", true).toBool()); // 默认开启去重
 }
 
 void MainWindow::log(const QString &msg, const QString &color)
@@ -233,6 +257,20 @@ void MainWindow::executeGeneration()
         log(logMsg, "yellow");
     }
 
+    // 获取压缩设置
+    int compIndex = compressCombo->currentIndex();
+    CompressionLevel compLevel = static_cast<CompressionLevel>(compIndex);
+    bool skipDupIncludes = dedupCheck->isChecked();
+    std::set<std::string> seenIncludes;
+    
+    QString compModeStr;
+    switch (compLevel) {
+        case COMPRESS_FULL: compModeStr = "Full"; break;
+        case COMPRESS_SKELETON: compModeStr = "Skeleton"; break;
+        case COMPRESS_INTERFACE: compModeStr = "Interface Only"; break;
+    }
+    log("Compression mode: " + compModeStr + (skipDupIncludes ? " (dedup ON)" : " (dedup OFF)"), "yellow");
+
     char buffer[256];
     // 安全复制文件名到 buffer
     strncpy(buffer, outputFileName.c_str(), sizeof(buffer));
@@ -261,7 +299,7 @@ void MainWindow::executeGeneration()
         std::ofstream fout(buffer, std::ios::app);
         fout << "# 项目目录结构：\n\n";
         fout << "```md\n";
-        getFile(pathStr, "", false, buffer, fout, ".");
+        getFile(pathStr, "", false, buffer, fout, ".", ignoreList);
         fout << "```\n\n";
         fout.close();
     }
@@ -273,8 +311,8 @@ void MainWindow::executeGeneration()
         std::ofstream fout(buffer, std::ios::app);
         fout << "# 项目代码实现：\n\n";
 
-        // 调用原有的 printCode 函数 (注意：原函数包含文件流的开关逻辑)
-        printCode(pathStr, "", false, buffer, fout, targetExtensions);
+        // 调用 printCode 函数，传递所有参数（包括压缩设置）
+        printCode(pathStr, "", false, buffer, fout, targetExtensions, ignoreList, compLevel, skipDupIncludes, seenIncludes);
 
         // printCode 结束时 fout 可能是关闭的或者打开的，强制确保关闭
         if(fout.is_open()) fout.close();

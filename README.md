@@ -1,187 +1,181 @@
-# MD Editor for AI
+# MD Editor For AI - GUI
 
-一个专为AI助手设计的Markdown文档生成工具，能够自动化生成包含项目结构、代码实现和需求的完整Markdown文档，特别适合与ChatGPT等AI编程助手配合使用。
+[![Qt Version](https://img.shields.io/badge/Qt-5%2F6-green.svg)](https://www.qt.io/)
+[![C++ Standard](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://isocpp.org/)
+[![License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
-## 🌟 功能特性
+一个基于 Qt 的 GUI 应用程序，用于生成 AI 代理可读的 Markdown 文档。通过扫描项目目录，提取源代码文件，并生成格式化的 Markdown 文档供 AI 分析。
 
-- **可视化界面**：基于Qt的GUI界面，操作简单直观
-- **智能项目分析**：自动扫描项目目录结构并生成树状图
-- **代码提取**：支持多种编程语言（C++、Python、Java等）的源代码提取
-- **模板化输出**：按照标准格式生成Markdown文档
-- **配置灵活**：可自定义需要提取的文件扩展名
-- **实时日志**：详细的操作日志和状态反馈
+![Application Preview](docs/preview.png)
 
-## 🏗️ 项目结构
+## 功能特性
 
-```
-MDEditorForAI/
-├── core/                 # 核心功能模块
-│   ├── getFile.cpp      # 目录遍历和代码提取
-│   ├── getFile.h
-│   ├── initPrint.cpp    # Markdown初始化
-│   └── initPrint.h
-├── main.cpp             # 程序入口
-├── MainWindow.cpp       # GUI主窗口实现
-├── MainWindow.h
-├── mainwindow.ui        # UI设计文件
-├── MarkdownEditor.pro   # Qt项目配置文件
-└── README.md           # 项目说明文档
-```
+### 核心功能
+- **项目扫描**：递归扫描指定目录，提取指定扩展名的源代码文件
+- **Gitignore 风格忽略**：支持通配符和精确匹配的忽略模式（如 `build`, `.git`, `*.log`）
+- **代码压缩**：
+  - **完整输出 (Full)**：保留原始代码
+  - **骨架模式 (Skeleton)**：保留签名和关键结构，省略函数体（默认）
+  - **仅接口 (Interface Only)**：只保留声明，删除所有实现
+- **#include 去重**：可选的跨文件重复 #include 去除
+- **设置持久化**：自动保存和恢复用户配置
 
-## 📋 系统要求
+### 支持的文件类型
+- **C/C++**：`.cpp`, `.h`, `.hpp`, `.c`, `.cc`, `.cxx`
+- **Java**：`.java`
+- **Python**：`.py`
+- **JavaScript/TypeScript**：`.js`, `.ts`
+- **Go**：`.go`
+- **Rust**：`.rs`
+- **C#**：`.cs`
+- **其他**：`.swift`, `.kt`, `.scala`, `.rb`, `.php`
 
-- **操作系统**：Windows、Linux或macOS
-- **编译器**：支持C++17的编译器（GCC 7+、Clang 5+、MSVC 2017+）
-- **Qt版本**：Qt 5.15或更高版本
-- **构建系统**：qmake或CMake
+## 快速开始
 
-## 🚀 快速开始
+### 环境要求
+- Qt 5.15+ 或 Qt 6.x
+- C++17 兼容的编译器（GCC, MSVC, Clang）
+- qmake 或 CMake
 
-### 1. 克隆仓库
+### 构建步骤
+
+#### 使用 Qt Creator
+1. 打开 `MarkdownEditor.pro`
+2. 选择构建套件（Kits）
+3. 点击构建/运行
+
+#### 使用命令行
 ```bash
-git clone https://github.com/yourusername/MDEditorForAI.git
-cd MDEditorForAI
-```
-
-### 2. 构建项目
-#### 使用Qt Creator：
-- 打开`MarkdownEditor.pro`文件
-- 选择构建套件并构建项目
-
-#### 使用命令行：
-```bash
+# 生成 Makefile
 qmake MarkdownEditor.pro
-make  # 或在Windows上：nmake 或 mingw32-make
+
+# 编译
+make        # Linux/Mac
+nmake       # Windows (MSVC)
+mingw32-make # Windows (MinGW)
 ```
 
-### 3. 运行程序
-```bash
-./MDEditorGUI  # Linux/macOS
-MDEditorGUI.exe  # Windows
+### 使用方法
+
+1. **启动应用**：运行 `MDEditorGUI.exe`（Windows）或 `MDEditorGUI`（Linux/Mac）
+
+2. **配置项目**：
+   - **Project Name**：输入项目名称（用于生成 .md 文件名）
+   - **Target Path**：选择要扫描的项目目录
+   - **Extensions**：输入文件扩展名（空格分隔，如 `cpp h hpp`）
+   - **Ignore List**：输入要忽略的文件/文件夹（空格分隔，支持通配符）
+   - **Compression**：选择代码压缩级别
+
+3. **输入需求**：在 Requirements 区域输入项目需求描述
+
+4. **生成文档**：点击 **GENERATE MARKDOWN** 按钮
+
+5. **查看输出**：生成的 Markdown 文件位于当前目录，命名为 `[ProjectName].md`
+
+## 项目结构
+
+```
+MarkdownEditor/
+├── main.cpp                  # 应用程序入口
+├── MainWindow.h/.cpp        # 主窗口实现
+├── mainwindow.ui            # UI 布局文件（Qt Designer）
+├── MarkdownEditor.pro       # Qt 项目文件
+├── MarkdownEditor_zh_CN.ts  # 中文翻译文件
+├── AGENTS.md                # AI 代理文档（本项目文档）
+├── README.md                # 本文件
+├── core/                    # 核心功能模块
+│   ├── getFile.h/.cpp       # 文件扫描和获取
+│   └── initPrint.h/.cpp     # 初始化输出和代码压缩
+└── build/                   # 构建输出目录
 ```
 
-## 📖 使用方法
+## 技术栈
 
-### 基本流程：
-1. **配置项目**
-   - 输入项目名称
-   - 选择项目根目录
-   - 设置需要提取的文件扩展名（如：`cpp h hpp py java`）
+- **框架**：Qt 5/6 (Widgets)
+- **语言**：C++17
+- **构建系统**：qmake
+- **目标文件名**：MDEditorGUI
 
-2. **输入需求**
-   - 在需求文本框中详细描述项目需求
+## 配置示例
 
-3. **生成文档**
-   - 点击"GENERATE MARKDOWN"按钮
-   - 程序将自动生成包含以下内容的Markdown文件：
-     - 项目目录结构
-     - 需求描述
-     - 完整的源代码实现
-
-### 生成文档示例：
-```markdown
-# 身份
-你是一个编程高手...
-
-# 项目规则
-...
-
-# 项目需求
-[用户输入的需求]
-
-# 项目目录结构
-├── src/
-│   ├── main.cpp
-│   └── utils.h
-
-# 项目代码实现
-main.cpp
-```cpp
-#include <iostream>
-...
+### 示例 1：扫描 C++ 项目
+```
+Project Name: MyCppProject
+Target Path: /path/to/my/project
+Extensions: cpp h hpp
+Ignore List: .git build .vscode *.tmp
+Compression: Skeleton (骨架模式)
+去重复 #include: [✓]
 ```
 
-utils.h
-```h
-#ifndef UTILS_H
-...
+### 示例 2：扫描 Python 项目
+```
+Project Name: MyPythonProject
+Target Path: /path/to/python/project
+Extensions: py
+Ignore List: __pycache__ .git venv *.pyc
+Compression: Full (完整输出)
+去重复 #include: [ ]
 ```
 
-## ⚙️ 配置选项
+## 压缩模式说明
 
-### 支持的文件扩展名
-默认支持：`.cpp`、`.h`、`.hpp`
+| 模式 | 保留内容 | 删除/替换 | 适用场景 |
+|------|---------|----------|---------|
+| **Full** | 全部 | - | 首次完整分析 |
+| **Skeleton** | 函数/类签名、`#include`、`using/namespace`、Qt 宏 | 函数体 → `// ... 实现省略` | 日常迭代（推荐） |
+| **Interface Only** | 类定义、函数声明 | 所有实现 | 架构确认 |
 
-可通过界面配置支持任意扩展名，例如：
-- Python项目：`.py`
-- Java项目：`.java`
-- Web项目：`.js` `.html` `.css`
+## 忽略模式语法
 
-### 自定义规则
-在项目根目录创建`rules.md`文件，程序会自动将其内容插入到生成的Markdown文档中。
+支持 Gitignore 风格的模式匹配：
 
-## 🔧 技术实现
+| 模式类型 | 示例 | 说明 |
+|---------|------|------|
+| 精确匹配 | `.git`, `build`, `node_modules` | 匹配完整文件名或文件夹名 |
+| 通配符 `*` | `*.log`, `temp*`, `*.tmp` | `*` 匹配任意字符 |
+| 通配符 `?` | `file?.txt` | `?` 匹配单个字符 |
 
-### 核心模块
-- **getFile模块**：负责文件系统遍历和代码提取
-- **initPrint模块**：负责Markdown文档的初始化和格式化
-- **MainWindow模块**：提供图形用户界面
+## 开发指南
 
-### 关键技术
-- 使用C++17标准库（特别是filesystem）
-- 基于Qt框架构建跨平台GUI
-- 递归目录遍历算法
-- Markdown语法自动生成
+### 添加新的文件过滤器
+编辑 `core/getFile.cpp` 中的过滤逻辑，支持新的文件扩展名或模式。
 
-## 📝 开发说明
+### 修改输出格式
+编辑 `core/initPrint.cpp` 中的格式化函数，调整 Markdown 输出结构。
 
-### 代码规范
-- 使用驼峰命名法
-- 遵循RAII原则管理资源
-- 异常安全设计
-- 详细的注释文档
+### 添加新的 UI 组件
+1. 在 `MainWindow.h` 中声明新组件
+2. 在 `MainWindow.cpp` 构造函数中初始化和布局
+3. 连接必要的信号/槽
 
-### 扩展开发
-要添加新功能，请遵循以下原则：
-1. 保持向后兼容性
-2. 新增函数使用驼峰命名法
-3. 修改已有代码时添加详细注释
-4. 确保跨平台兼容性
+## 常见问题
 
-## 🤝 贡献指南
+**Q: 生成的 Markdown 文件在哪里？**  
+A: 默认在项目根目录，命名为 `[ProjectName].md`
 
-欢迎提交Issue和Pull Request！
+**Q: 支持哪些 Qt 版本？**  
+A: Qt 5.15+ 和 Qt 6.x 均可
 
-### 贡献流程：
-1. Fork本仓库
-2. 创建功能分支
-3. 提交更改
-4. 推送到分支
-5. 创建Pull Request
+**Q: 骨架模式会丢失重要代码吗？**  
+A: 不会。骨架模式保留所有接口定义和关键结构，仅省略函数体实现
 
-### 代码要求：
-- 通过代码审查
-- 添加适当的测试
-- 更新相关文档
+**Q: 如何恢复默认设置？**  
+A: 删除系统配置文件（Windows: 注册表，Linux/Mac: QSettings 存储位置）
 
-## 📄 许可证
+## 贡献
 
-本项目采用MIT许可证。详见[LICENSE](LICENSE)文件。
+欢迎提交 Issue 和 Pull Request！
 
-## 📞 支持与反馈
+## 许可证
 
-- **问题反馈**：请使用GitHub Issues
-- **功能建议**：欢迎提出新想法
-- **贡献代码**：Pull Request随时开放
+[MIT License](LICENSE)
 
-## 🙏 致谢
+## 致谢
 
-感谢所有为这个项目做出贡献的开发者！
+- [Qt Framework](https://www.qt.io/) - 跨平台 GUI 框架
+- C++17 标准库
 
 ---
 
-**温馨提示**：生成的Markdown文档可以直接复制到ChatGPT等AI助手的对话中，帮助AI更好地理解你的项目结构和代码实现。
-
----
-
-
+**Made with ❤️ for AI-assisted development**

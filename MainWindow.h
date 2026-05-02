@@ -8,7 +8,10 @@
 #include <QLabel>
 #include <QVBoxLayout>
 #include <QProgressBar>
-#include <Qsettings>
+#include <QSettings>
+#include <QComboBox>
+#include <QCheckBox>
+#include <QHBoxLayout>
 
 class MainWindow : public QMainWindow
 {
@@ -37,6 +40,8 @@ private:
     QPushButton *browseBtn;     // 浏览按钮
     QPushButton *generateBtn;   // 生成按钮
     QTextEdit *logConsole;      // 日志输出区域
+    QComboBox *compressCombo;   // 压缩模式下拉框
+    QCheckBox *dedupCheck;      // 去重复#include复选框
 
     void loadSettings();
     void saveSettings();
