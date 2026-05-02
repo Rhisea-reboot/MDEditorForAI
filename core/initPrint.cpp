@@ -29,11 +29,22 @@ static std::string toLower(const std::string& s) {
 
 // ============ 文件扩展名检查 ============
 
+// 判断文件是否需要压缩（仅代码文件）
+// 支持的语言：C/C++、Java、Python、JavaScript/TypeScript、Go、Rust、C#、Swift、Kotlin、Scala、Ruby、PHP
 bool shouldCompressFile(const std::string& extension) {
     static const std::set<std::string> codeExtensions = {
+        // C/C++ 家族
         ".cpp", ".h", ".hpp", ".c", ".cc", ".cxx",
-        ".java", ".py", ".js", ".ts", ".go", ".rs",
-        ".cs", ".swift", ".kt", ".scala", ".rb", ".php"
+        // Java 家族
+        ".java", ".kt", ".scala",
+        // 动态语言
+        ".py", ".rb", ".php",
+        // Web/Node.js
+        ".js", ".ts", ".jsx", ".tsx", ".mjs",
+        // 系统/现代语言
+        ".go", ".rs", ".cs", ".swift",
+        // 其他常见语言
+        ".r", ".jl", ".lua"
     };
     return codeExtensions.count(toLower(extension)) > 0;
 }
@@ -52,9 +63,11 @@ enum class LineKind {
 
 static bool isDocComment(const std::string& line) {
     std::string t = trim(line);
-    return t.substr(0, 3) == "///" || 
-           t.substr(0, 3) == "//!" ||
-           t.substr(0, 4) == "/** ";
+    if (t.length() >= 3) {
+        if (t.substr(0, 3) == "///" || t.substr(0, 3) == "//!") return true;
+        if (t.length() >= 4 && t.substr(0, 4) == "/** ") return true;
+    }
+    return false;
 }
 
 static LineKind classifyCppLine(const std::string& line) {
@@ -69,7 +82,7 @@ static LineKind classifyCppLine(const std::string& line) {
     if (isDocComment(line)) return LineKind::DOC_COMMENT;
     
     // 普通注释 - 不作为签名处理
-    if (t.substr(0, 2) == "//" || t.substr(0, 2) == "/*") return LineKind::COMMENT;
+    if (t.length() >= 2 && (t.substr(0, 2) == "//" || t.substr(0, 2) == "/*")) return LineKind::COMMENT;
     
     // 花括号
     if (t == "{" || t == "}") {
@@ -275,6 +288,102 @@ static std::string compressCppInterface(const std::string& raw) {
                           });
 }
 
+// ============ Ruby/PHP 风格语言压缩（end 关键字闭合） ============
+
+static std::string compressRubyLikeSkeleton(const std::string& raw) {
+    std::istringstream in(raw);
+    std::string line;
+    std::vector<std::string> out;
+    
+    int blockDepth = 0;           // end 关键字深度
+    bool inDefinition = false;    // 在类/函数/模块定义内
+    
+    while (std::getline(in, line)) {
+        std::string t = trim(line);
+        
+        // 空行保留（限制连续）
+        if (t.empty()) {
+            if (out.empty() || !out.back().empty()) {
+                out.push_back(line);
+            }
+            continue;
+        }
+        
+        // 检测定义开始（Ruby: class/def/module, PHP: class/function）
+        bool isDefStart = false;
+        if (t.length() >= 4 && t.substr(0, 4) == "def ") {
+            isDefStart = true;  // Ruby/Python 方法
+        } else if (t.length() >= 6 && t.substr(0, 6) == "class ") {
+            isDefStart = true;  // Ruby/PHP 类
+        } else if (t.length() >= 7 && t.substr(0, 7) == "module ") {
+            isDefStart = true;  // Ruby 模块
+        } else if (t.length() >= 9 && (t.substr(0, 9) == "function " || t.substr(0, 9) == "function(")) {
+            isDefStart = true;  // PHP 函数
+        } else if (t.find("function ") != std::string::npos && t.find("(") != std::string::npos) {
+            isDefStart = true;  // PHP 函数其他形式
+        }
+        
+        if (isDefStart) {
+            out.push_back(line);
+            inDefinition = true;
+            blockDepth = 1;
+            continue;
+        }
+        
+        // 在定义内部
+        if (inDefinition) {
+            // 检测嵌套定义（增加深度）
+            if (t.substr(0, 6) == "class " || t.substr(0, 4) == "def " ||
+                t.substr(0, 7) == "module " || t.substr(0, 9) == "function ") {
+                blockDepth++;
+            }
+            // 检测 end 关键字（减少深度）
+            else if (t == "end" || t.substr(0, 4) == "end " ||
+                     (t.size() >= 1 && t[0] == '}')) {  // PHP 也支持 {}
+                blockDepth--;
+                if (blockDepth <= 0) {
+                    inDefinition = false;
+                    out.push_back(line);  // 保留 end/}
+                }
+            }
+            // 保留文档注释（Ruby: =begin/=end, RDoc: ##, PHP: /** //)
+            else if (t.substr(0, 2) == "##" || t.substr(0, 3) == "###" ||
+                     t.substr(0, 4) == "# **" || t.substr(0, 3) == "# @") {
+                out.push_back(line);
+            }
+            // 其他内容丢弃
+            continue;
+        }
+        
+        // 函数体外：保留顶层常量、require/include
+        if (t.substr(0, 8) == "require " || t.substr(0, 8) == "require_" ||
+            t.substr(0, 8) == "include " || t.substr(0, 7) == "import ") {
+            // 保留导入语句（转为注释形式）
+            // out.push_back("# " + t);
+        }
+        // 保留常量定义（全大写）
+        else if (t.find("=") != std::string::npos) {
+            size_t eqPos = t.find('=');
+            std::string name = trim(t.substr(0, eqPos));
+            // 检查是否全大写（Ruby/PHP 常量习惯）
+            bool isConst = std::all_of(name.begin(), name.end(), [](char c) {
+                return std::isupper(c) || c == '_';
+            }) && !name.empty();
+            
+            if (isConst) {
+                out.push_back(line);
+            }
+        }
+        // 其他顶层代码丢弃（避免碎片）
+    }
+    
+    return out.empty() ? "" : 
+           std::accumulate(out.begin(), out.end(), std::string(),
+                          [](const std::string& a, const std::string& b) { 
+                              return a.empty() ? b : a + "\n" + b; 
+                          });
+}
+
 // ============ Python 简单结构感知压缩（无外部依赖） ============
 
 static std::string compressPySkeleton(const std::string& raw) {
@@ -306,9 +415,9 @@ static std::string compressPySkeleton(const std::string& raw) {
             continue;
         }
         
-        // 检测函数/类定义
-        bool isDef = t.substr(0, 4) == "def " && t.back() == ':';
-        bool isClass = t.substr(0, 6) == "class " && t.back() == ':';
+        // 检测函数/类定义（确保长度足够）
+        bool isDef = t.length() >= 5 && t.substr(0, 4) == "def " && t.back() == ':';
+        bool isClass = t.length() >= 7 && t.substr(0, 6) == "class " && t.back() == ':';
         
         if (isDef || isClass) {
             out.push_back(line);
@@ -388,16 +497,32 @@ std::string compressCode(const std::string& raw, CompressionLevel level,
     
     // 根据文件扩展名选择压缩策略
     if (extLower == ".py") {
-        // Python：使用简单结构感知（缩进分析）
+        // Python：缩进分析
         result = compressPySkeleton(raw);
     } else if (extLower == ".cpp" || extLower == ".h" || extLower == ".hpp" ||
                extLower == ".c" || extLower == ".cc" || extLower == ".cxx") {
-        // C++：使用花括号状态机
+        // C/C++：花括号状态机
         if (level == COMPRESS_INTERFACE) {
             result = compressCppInterface(raw);
         } else {
             result = compressCppSkeleton(raw);
         }
+    } else if (extLower == ".java" || extLower == ".js" || extLower == ".ts" ||
+               extLower == ".jsx" || extLower == ".tsx" || extLower == ".mjs" ||
+               extLower == ".go" || extLower == ".rs" || extLower == ".cs" ||
+               extLower == ".swift" || extLower == ".kt" || extLower == ".scala" ||
+               extLower == ".r" || extLower == ".jl" || extLower == ".lua") {
+        // C-family / 类 C 语法语言：复用 C++ 花括号逻辑
+        // 包括：Java、JS/TS/JSX/TSX、Go、Rust、C#、Swift、Kotlin、Scala、R、Julia、Lua
+        // 注：这些语言语法结构类似（花括号、类/函数定义、文档注释）
+        if (level == COMPRESS_INTERFACE) {
+            result = compressCppInterface(raw);
+        } else {
+            result = compressCppSkeleton(raw);
+        }
+    } else if (extLower == ".rb" || extLower == ".php") {
+        // Ruby/PHP：类 Ruby 语法（end 关键字闭合）
+        result = compressRubyLikeSkeleton(raw);
     } else {
         // 其他语言：简单处理
         result = (level == COMPRESS_INTERFACE) ? "" : raw;

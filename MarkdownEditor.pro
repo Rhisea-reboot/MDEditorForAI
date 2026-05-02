@@ -15,12 +15,14 @@ INCLUDEPATH += $$PWD/core
 SOURCES += \
     main.cpp \
     MainWindow.cpp \
+    SplashScreen.cpp \
     core/getFile.cpp \
     core/initPrint.cpp
 
 # 头文件
 HEADERS += \
     MainWindow.h \
+    SplashScreen.h \
     core/getFile.h \
     core/initPrint.h
 

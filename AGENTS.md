@@ -42,12 +42,15 @@ MarkdownEditor/
 - Markdown格式化输出
 - 文件内容组织和结构化
 - 生成AI可读的文档格式
-- **代码压缩功能**：
+- **代码压缩功能**（结构感知）：
   - **完整输出 (Full)**：保留原始代码
-  - **骨架模式 (Skeleton)**：保留函数/类签名、#include、using/namespace、Qt宏，函数体替换为 `// ... 实现省略`
-  - **仅接口 (Interface Only)**：只保留类定义和函数声明，删除所有实现
+  - **骨架模式 (Skeleton)**：保留函数/类签名、#include、using/namespace、文档注释，函数体替换为 `{};` 或省略
+  - **仅接口 (Interface Only)**：只保留声明（签名以 `;` 结尾），删除所有实现
   - 可选的跨文件 `#include` 去重
-  - 仅对代码文件 (.cpp/.h/.hpp 等) 进行压缩，其他文件保持原样
+  - **支持语言**（17+ 种）：
+    - **花括号类**：C/C++、Java、JavaScript/TypeScript/JSX/TSX、Go、Rust、C#、Swift、Kotlin、Scala、R、Julia、Lua
+    - **缩进类**：Python
+    - **end 关键字类**：Ruby、PHP
 
 ### MainWindow模块
 - 项目配置输入（名称、路径、扩展名）
@@ -120,6 +123,16 @@ mingw32-make # Windows (MinGW)
 1. 在 `MainWindow.h` 中声明新组件
 2. 在 `MainWindow.cpp` 构造函数中初始化和布局
 3. 连接必要的信号/槽
+
+### 添加新的语言压缩支持
+编辑 `initPrint.cpp`：
+1. 在 `shouldCompressFile()` 中添加新的扩展名
+2. 在 `compressCode()` 的 dispatch 逻辑中添加新分支
+3. 根据语言语法选择压缩策略：
+   - **花括号类**（C-family）：复用 `compressCppSkeleton()` / `compressCppInterface()`
+   - **缩进类**（如 Python）：复用 `compressPySkeleton()` 或实现缩进分析
+   - **end 关键字类**（如 Ruby）：复用 `compressRubyLikeSkeleton()` 或实现 end 计数器
+4. 如需特殊处理，可新增 `compressXxxSkeleton()` 函数
 
 ## 调试提示
 
